@@ -72,8 +72,8 @@ class SimpleCNN(nn.Module):
     def predict(self, x: torch.Tensor) -> torch.Tensor:
         x = self.forward(x)
         return F.softmax(x, dim=-1)
-    
-    
+
+
 class LSTMNetwork(nn.Module):
     """
     Recurrent neural network build with long short term memory
