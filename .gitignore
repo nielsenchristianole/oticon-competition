@@ -1,0 +1,11 @@
+# generel
+*.ipynb
+
+# model training
+*.yaml
+*.csv
+*.ckpt
+
+# folders
+data/
+models/
