@@ -1,0 +1,3 @@
+num parameters (or memory) vs accuracy
+accuracy vs speed
+accuracy vs num flops

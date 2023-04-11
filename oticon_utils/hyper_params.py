@@ -34,6 +34,6 @@ lstm_params = dict(
     ),
     training_module_kwargs=dict(
         loss_fn=CrossEntropyLoss,
-        lr=1e-3
+        lr=0.08 # uses LBFGS optimizer
     )
 )

@@ -1,5 +1,7 @@
 # generel
 *.ipynb
+*.pyc
+**/__pychache__/
 
 # model training
 *.yaml
