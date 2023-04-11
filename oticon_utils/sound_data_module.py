@@ -3,8 +3,8 @@ import os
 import numpy as np
 
 import torch
-import pytorch_lightning as pl
 from torch.utils.data import random_split, TensorDataset, DataLoader
+import pytorch_lightning as pl
 
 
 class SoundDataModule(pl.LightningDataModule):
@@ -13,7 +13,7 @@ class SoundDataModule(pl.LightningDataModule):
         data_dir: str,
         *,
         batch_size: int=64,
-        sound_snippet_lenght: int=-1,
+        sound_context_lenght: int=-1,
         train_val_split: tuple[float, float] = (0.8, 0.2),
         num_workers: int=None
     ):
@@ -25,11 +25,11 @@ class SoundDataModule(pl.LightningDataModule):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
-        self.sound_snippet_lenght = sound_snippet_lenght
+        self.sound_snippet_lenght = sound_context_lenght
         self.train_val_split = train_val_split
         self.num_workers = num_workers if num_workers is not None else os.cpu_count()
         
-        assert sound_snippet_lenght <= 96, f'{sound_snippet_lenght=} has to be lower than 96'
+        assert sound_context_lenght <= 96, f'{sound_context_lenght=} has to be lower than 96'
         assert np.sum(train_val_split) == 1., f'{train_val_split=} has to sum to 1'
     
     def setup(self, stage: str):
@@ -49,7 +49,7 @@ class SoundDataModule(pl.LightningDataModule):
         return DataLoader(self.train_set, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, collate_fn=self._collate_X_y)
 
     def val_dataloader(self):
-        return DataLoader(self.val_set, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, collate_fn=self._collate_X_y)
+        return DataLoader(self.val_set, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, collate_fn=self._collate_X_y)
 
     def test_dataloader(self):
         raise NotImplementedError('test_dataloader has not been implemented')
@@ -61,7 +61,7 @@ class SoundDataModule(pl.LightningDataModule):
         X, y = list(zip(*batch))
 
         if self.sound_snippet_lenght == -1:
-            return torch.stack(X), torch.stack(y)
+            return torch.stack(X), torch.stack(y).squeeze().to(int)
         
         return_X = list()
         return_y = list()
@@ -71,7 +71,7 @@ class SoundDataModule(pl.LightningDataModule):
             return_X.append(X[..., start:end])
             return_y.append(y)
 
-        return torch.stack(return_X), torch.stack(return_y)
+        return torch.stack(return_X), torch.stack(return_y).squeeze().to(int)
     
     def _collate_X(self, batch):
         X = list(zip(*batch))[0]
@@ -90,7 +90,7 @@ class SoundDataModule(pl.LightningDataModule):
 if __name__ == "__main__":
     # testing to see if it works
     data_dir = './data/'
-    data_module = SoundDataModule(data_dir, sound_snippet_lenght=-1)
+    data_module = SoundDataModule(data_dir, sound_context_lenght=-1)
     data_module.setup('fit')
     data_module.setup('predict')
 
