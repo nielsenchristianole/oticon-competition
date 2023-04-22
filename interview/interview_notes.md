@@ -13,11 +13,11 @@
 
 ### Citater
 
-> General snak om oplevelsen ved at få et høreapparat 
+> General snak om oplevelsen ved at få et høreapparat   
 "Nu kan jeg høre hvad min kone siger"
 "Det er hende der skruger op for tv'et nu"
 
-> Pga. batteri levetiden lader han sit høreapparat hver nat.
+> Pga. batteri levetiden lader han sit høreapparat hver nat.  
 "Jeg kan ikke høre mit vækkeur" 
 
 > 
