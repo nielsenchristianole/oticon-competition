@@ -24,7 +24,7 @@ class TrainingModule(pl.LightningModule):
         self.save_hyperparameters(ignore=['model', 'loss_fn'])
         
         self.model = model
-        self.loss_fn = loss_fn(weights=loss_weights)
+        self.loss_fn = loss_fn(weight=loss_weights)
         self.lr = lr
         self.num_classes = num_classes
         self.loss_weights = loss_weights

@@ -47,7 +47,7 @@ def main(model_type: str, epochs: int, seed: int=None, device: str='cuda'):
     training_module_kwargs = params.get('training_module_kwargs')
     training_model = TrainingModule(model, loss_weights=loss_weights, **training_module_kwargs).to(device)
     
-    loss_callback = ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=5, filename='loss-{epoch}-{val_loss:.3}')
+    loss_callback = ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=5, filename='loss-{epoch}-{val_loss:.3}-acc-{val_acc:.3}')
     
     # init trainer
     trainer = pl.Trainer(

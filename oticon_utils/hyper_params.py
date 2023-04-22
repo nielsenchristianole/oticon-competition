@@ -16,11 +16,11 @@ cnn_params = dict(
     sound_context_lenght=-1,
     model_kwargs=dict(
         channels=(1, 2, 4, 8),
-        fc_dims=(5,),
+        fc_dims=(64,64,5),
         in_channels=1,
-        channel_mult=8,
-        dropout=0.,
-        channels_layer_repeats=1,
+        channel_mult=32,
+        dropout=0.6,
+        channels_layer_repeats=3,
     ),
     training_module_kwargs=dict(
         loss_fn=CrossEntropyLoss,
