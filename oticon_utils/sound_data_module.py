@@ -18,7 +18,7 @@ class SoundDataModule(pl.LightningDataModule):
         num_classes: int=5,
         train_val_split: tuple[float, float] = (0.8, 0.2),
         num_workers: int=None,
-        balance: bool=False,
+        balance: float=0.,
         class_subset: list=None,
     ):
         """
@@ -51,11 +51,13 @@ class SoundDataModule(pl.LightningDataModule):
             for label in self.class_subset:
                 count = np.sum(y == label)
                 min_num_classes = count if count < min_num_classes else min_num_classes
+            min_num_classes *= self.balance
             for label in self.class_subset:
                 mask = (y == label)
                 tmp = X[mask], y[mask]
                 if self.balance:
-                    choices = np.random.choice(len(tmp[1]), size=min_num_classes, replace=False)
+                    count = min(np.sum(y == label), min_num_classes)
+                    choices = np.random.choice(len(tmp[1]), size=count, replace=False)
                     tmp = tmp[0][choices], tmp[1][choices]
                 Xs.append(tmp[0])
                 ys.append(tmp[1])
