@@ -74,7 +74,6 @@ class SimpleCNN(nn.Module):
         #     pass
         if len(x.shape) == 3:
             x = x.unsqueeze(1)
-            
         for layer in self.convolution_layers:
             x = layer(x)
         x = x.flatten(start_dim=1)

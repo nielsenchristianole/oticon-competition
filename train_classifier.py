@@ -34,7 +34,7 @@ def main(model_type: str, epochs: int, seed: int=None, device: str='cuda'):
     one_hot = params.get('training_module_kwargs').get('loss_fn') is torch.nn.MSELoss
     # get dataloaders
     sound_context_lenght = params.get('sound_context_lenght')
-    data_module = SoundDataModule('./data/', sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=True, class_subset=[2, 4])
+    data_module = SoundDataModule('./data/', sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=True)
     assert device=='cpu' or torch.cuda.is_available(), "Cuda is not available, please select cpu as device"
     
     # get model
@@ -81,4 +81,4 @@ if __name__ == '__main__':
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
     assert torch.cuda.is_available()
     
-    main(model_type, epochs, seed, device)
+    main(model_type, epochs, seed, 'cpu')
