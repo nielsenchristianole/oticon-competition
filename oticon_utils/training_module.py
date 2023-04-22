@@ -28,7 +28,7 @@ class TrainingModule(pl.LightningModule):
         
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
         self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
-    
+
     def process_batch(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx, acc: torchmetrics.Accuracy=None):
         x, y = batch
         if isinstance(self.model, LSTMNetwork):
