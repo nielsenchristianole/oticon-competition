@@ -24,7 +24,8 @@ cnn_params = dict(
     ),
     training_module_kwargs=dict(
         loss_fn=CrossEntropyLoss,
-        lr=1e-3
+        lr=1e-3,
+        weight_decay=1e-5
     )
 )
 

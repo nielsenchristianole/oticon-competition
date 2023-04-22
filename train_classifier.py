@@ -34,8 +34,9 @@ def main(model_type: str, epochs: int, seed: int=None, device: str='cuda'):
     one_hot = params.get('training_module_kwargs').get('loss_fn') is torch.nn.MSELoss
     # get dataloaders
     sound_context_lenght = params.get('sound_context_lenght')
-    data_module = SoundDataModule('./data/', sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=True)
+    data_module = SoundDataModule('./data/', sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=5.)
     assert device=='cpu' or torch.cuda.is_available(), "Cuda is not available, please select cpu as device"
+    loss_weights = data_module.get_loss_weight()
     
     # get model
     input_dims = (32, sound_context_lenght if sound_context_lenght > 0 else 96)
@@ -44,7 +45,7 @@ def main(model_type: str, epochs: int, seed: int=None, device: str='cuda'):
     
     # get training model
     training_module_kwargs = params.get('training_module_kwargs')
-    training_model = TrainingModule(model, **training_module_kwargs).to(device)
+    training_model = TrainingModule(model, loss_weights=loss_weights, **training_module_kwargs).to(device)
     
     loss_callback = ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=5, filename='loss-{epoch}-{val_loss:.3}')
     

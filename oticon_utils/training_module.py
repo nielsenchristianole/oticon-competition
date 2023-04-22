@@ -16,15 +16,19 @@ class TrainingModule(pl.LightningModule):
         model: nn.Module,
         loss_fn: nn.Module=nn.CrossEntropyLoss,
         lr: float=1e-3,
-        num_classes: int=5
+        num_classes: int=5,
+        loss_weights: torch.Tensor=None,
+        weight_decay: float=1e-5
     ):
         super().__init__()
         self.save_hyperparameters(ignore=['model', 'loss_fn'])
         
         self.model = model
-        self.loss_fn = loss_fn()
+        self.loss_fn = loss_fn(weights=loss_weights)
         self.lr = lr
         self.num_classes = num_classes
+        self.loss_weights = loss_weights
+        self.weight_decay = weight_decay
         
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
         self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
@@ -58,9 +62,9 @@ class TrainingModule(pl.LightningModule):
     def configure_optimizers(self):
         if isinstance(self.model, LSTMNetwork):
             # apparently works better for LSTM
-            optimizer = torch.optim.LBFGS(self.parameters(), lr=self.lr)
+            optimizer = torch.optim.LBFGS(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         else:
-            optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         return optimizer
     
     def return_model(self) -> nn.Module:
