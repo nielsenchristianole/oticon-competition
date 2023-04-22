@@ -35,6 +35,8 @@ class SoundDataModule(pl.LightningDataModule):
         self.train_val_split = train_val_split
         self.num_workers = num_workers if num_workers is not None else os.cpu_count()
         self.balance = balance
+        self.numpy_X = None
+        self.numpy_y = None
         
         if class_subset is None:
             class_subset = list(range(num_classes))
@@ -51,17 +53,18 @@ class SoundDataModule(pl.LightningDataModule):
             for label in self.class_subset:
                 count = np.sum(y == label)
                 min_num_classes = count if count < min_num_classes else min_num_classes
-            min_num_classes *= self.balance
+            min_num_classes = int(min_num_classes * self.balance)
             for label in self.class_subset:
                 mask = (y == label)
                 tmp = X[mask], y[mask]
-                if self.balance:
+                if self.balance > 0:
                     count = min(np.sum(y == label), min_num_classes)
                     choices = np.random.choice(len(tmp[1]), size=count, replace=False)
                     tmp = tmp[0][choices], tmp[1][choices]
                 Xs.append(tmp[0])
                 ys.append(tmp[1])
             X, y = np.concatenate(Xs, axis=0), np.concatenate(ys, axis=0)
+            self.numpy_X, self.numpy_y = X, y
             X, y = torch.Tensor(X), torch.Tensor(y)
             whole_dataset = TensorDataset(X, y)
             self.train_set, self.val_set = random_split(whole_dataset, self.train_val_split)
@@ -83,6 +86,17 @@ class SoundDataModule(pl.LightningDataModule):
 
     def predict_dataloader(self):
         return DataLoader(self.predict_set, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, collate_fn=self._collate_X)
+    
+    def get_loss_weight(self) -> torch.Tensor:
+        if self.numpy_y is None:
+            self.setup('fit')
+        class_distribution = list()
+        for label in self.class_subset:
+            class_distribution.append(np.sum(self.numpy_y == label) / len(self.numpy_y))
+        class_distribution = np.array(class_distribution)
+        class_distribution = 1 / class_distribution
+        class_distribution = class_distribution * len(self.class_subset) / sum(class_distribution)
+        return torch.from_numpy(class_distribution).to(torch.float32)
     
     def _collate_X_y(self, batch):
         X, y = list(zip(*batch))
