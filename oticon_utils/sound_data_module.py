@@ -95,6 +95,7 @@ class SoundDataModule(pl.LightningDataModule):
             class_distribution.append(np.sum(self.numpy_y == label) / len(self.numpy_y))
         class_distribution = np.array(class_distribution)
         class_distribution = 1 / class_distribution
+        class_distribution = class_distribution * len(self.class_subset) / sum(class_distribution)
         return torch.from_numpy(class_distribution)
     
     def _collate_X_y(self, batch):
