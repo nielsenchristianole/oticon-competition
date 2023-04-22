@@ -16,6 +16,8 @@ class SimpleCNN(nn.Module):
         self,
         channels: list,
         fc_dims: list,
+        in_channels: int=1,
+        channel_mult: int=32,
         dropout: float=0.,
         channels_layer_repeats: int=3,
         input_dims: list[int, int]=(32, 96),
@@ -26,15 +28,21 @@ class SimpleCNN(nn.Module):
         self.fc_dims = fc_dims
         self.dropout = dropout
         self.channels_layer_repeats = channels_layer_repeats
-        self.input_dims=input_dims
+        self.input_dims = input_dims
+        self.in_channels = in_channels
+        self.channel_mult = channel_mult
         
-        convolution_layers = list()
+        convolution_layers = [
+            nn.Conv2d(in_channels, channel_mult * channels[0], kernel_size=(3, 3), padding='same'),
+            nn.ReLU(),
+            nn.Dropout(dropout)
+        ]
         for idx_channel, (in_channels, out_channels) in enumerate(zip(channels[:-1], channels[1:])):
             layer = [nn.InstanceNorm2d(in_channels)]
             for _ in range(channels_layer_repeats):
                 layer.append(
                     nn.Sequential(
-                        nn.Conv2d(in_channels, out_channels, kernel_size=(3, 3), padding='same'),
+                        nn.Conv2d(channel_mult * in_channels, channel_mult * out_channels, kernel_size=(3, 3), padding='same'),
                         nn.ReLU(),
                         nn.Dropout(dropout)
                     )
@@ -47,7 +55,7 @@ class SimpleCNN(nn.Module):
         self.convolution_layers = nn.ModuleList(convolution_layers)
         
         # add input dims from convolutions
-        fc_dims = [np.prod(input_dims) // (4 ** (len(channels) - 1)) * channels[-1]] + list(fc_dims)
+        fc_dims = [np.prod(input_dims) * channels[-1] * channel_mult // (4 ** (len(channels) - 1))] + list(fc_dims)
         dense_layers = list()
         for in_dim, out_dim in zip(fc_dims[:-2], fc_dims[1:-1]):
             dense_layers.append(
@@ -62,6 +70,11 @@ class SimpleCNN(nn.Module):
         self.dense_layers = nn.ModuleList(dense_layers)
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # if len(x.shape) == 4:
+        #     pass
+        if len(x.shape) == 3:
+            x = x.unsqueeze(1)
+            
         for layer in self.convolution_layers:
             x = layer(x)
         x = x.flatten(start_dim=1)
@@ -88,29 +101,32 @@ class LSTMNetwork(nn.Module):
     ):
         super().__init__()
         
-        input_dim, sound_context_length = input_dims
-        self.input_dim = input_dim
+        freq_dim, sound_context_length = input_dims
+        self.input_dims = input_dims
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
         
         self.f_t = nn.Sequential(
-            nn.Linear(input_dim + hidden_dim, hidden_dim),
+            nn.Linear(freq_dim + hidden_dim, hidden_dim),
             nn.Sigmoid()
         )
         self.i_t = nn.Sequential(
-            nn.Linear(input_dim + hidden_dim, hidden_dim),
+            nn.Linear(freq_dim + hidden_dim, hidden_dim),
             nn.Sigmoid()
         )
         self.c_plus = nn.Sequential(
-            nn.Linear(input_dim + hidden_dim, hidden_dim),
+            nn.Linear(freq_dim + hidden_dim, hidden_dim),
             nn.Tanh()
         )
         self.o_t = nn.Sequential(
-            nn.Linear(input_dim + hidden_dim, hidden_dim),
+            nn.Linear(freq_dim + hidden_dim, hidden_dim),
             nn.Sigmoid()
         )
         self.tanh = nn.Tanh()
         self.out = nn.Linear(hidden_dim, output_dim)
+        
+        self.h_layer_norm = nn.LayerNorm(hidden_dim)
+        self.c_layer_norm = nn.LayerNorm(hidden_dim)
 
 
     def forward(
@@ -147,6 +163,9 @@ class LSTMNetwork(nn.Module):
             c_t = c_t * self.f_t(combined) + self.i_t(combined) * self.c_plus(combined)
             h_t = self.o_t(combined) * self.tanh(c_t)
             
+            # normelize
+            c_t, h_t = self.c_layer_norm(c_t), self.h_layer_norm(h_t)
+            
             out = self.out(h_t)
             if t == predict_time:
                 return out
@@ -163,6 +182,7 @@ class LSTMNetwork(nn.Module):
         memory: tuple[torch.Tensor, torch.Tensor]=None,
         predict_time: int=None
     ):
+        assert self.training, "Model not in training mode"
         if predict_time is None:
             predict_time = x.shape[-1] - 1
         x = self.forward(x, memory=memory, predict_time=predict_time)
