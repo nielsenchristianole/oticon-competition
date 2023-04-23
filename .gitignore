@@ -1,5 +1,5 @@
 # generel
-*.ipynb
+# *.ipynb
 *.pyc
 **/__pychache__/
 

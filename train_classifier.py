@@ -100,7 +100,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     model_type = 'cnn' if args.model is None else args.model
-    epochs = 1 if args.epochs is None else args.epochs
+    epochs = 4 if args.epochs is None else args.epochs
     seed = args.seed
     device = args.device
     if device is None:
