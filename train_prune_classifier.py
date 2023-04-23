@@ -81,13 +81,34 @@ def main(model_type: str, epochs: int, prune_epochs: int, interations: int, seed
         data_module
     )
     
+    # get precictions and do eval metrics
+    init_trainer.test(
+        training_model,
+        data_module,
+        ckpt_path='best'
+    )
+    
+    version_path = os.path.join(models_dir, 'lightning_logs', 'version_0')
+    v = 0
+    while True:
+        v += 1
+        path = os.path.join(models_dir, 'lightning_logs', f'version_{v}')
+        if os.path.exists(path):
+            version_path = path
+        else:
+            break
+    
+    test_predictions, test_labels = training_model.return_test_results()
+    np.save(os.path.join(version_path, 'test_predictions.npy'), test_predictions)
+    np.save(os.path.join(version_path, 'test_labels.npy'), test_labels)
+    
+    
+    loss_callback = ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=5, filename='(pruned)loss-{epoch}-{val_loss:.3}-{val_acc:.3}')
+
+
     ### Do 'iterations' number of prunning.
     # Detach the pruning from pytorch lightning due to issues
     for iter in range(interations):
-        
-        data_module = SoundDataModule('./data/', sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=3.)
-        
-        loss_callback = ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=-1, filename='(pruned)loss-{epoch}-{val_loss:.3}-{val_acc:.3}')
         
         pruned_trainer = pl.Trainer(
             default_root_dir=models_dir,
@@ -111,12 +132,38 @@ def main(model_type: str, epochs: int, prune_epochs: int, interations: int, seed
             amount=compute_prune_amount(iter),
         )
         
+        n_pruned_param = 0
+        for name, parameters in model.named_parameters():
+            if(name.endswith('_orig')):
+                n_pruned_param += parameters.numel()
         
+        print(f">>> Iteration: {iter}, Total pruned: {n_pruned_param}")
         # train loop
         pruned_trainer.fit(
             training_model,
             data_module
         )
+        
+    # get precictions and do eval metrics
+    pruned_trainer.test(
+        training_model,
+        data_module,
+        ckpt_path='best'
+    )
+    
+    version_path = os.path.join(models_dir, 'lightning_logs', 'version_0')
+    v = 0
+    while True:
+        v += 1
+        path = os.path.join(models_dir, 'lightning_logs', f'version_{v}')
+        if os.path.exists(path):
+            version_path = path
+        else:
+            break
+    
+    test_predictions, test_labels = training_model.return_test_results()
+    np.save(os.path.join(version_path, 'test_predictions.npy'), test_predictions)
+    np.save(os.path.join(version_path, 'test_labels.npy'), test_labels)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
