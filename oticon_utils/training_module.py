@@ -13,7 +13,7 @@ from .nn_modules import SimpleFCNN, SimpleCNN, LSTMNetwork
 class TrainingModule(pl.LightningModule):
     def __init__(
         self,
-        model: nn.Module,
+        model,
         loss_fn: nn.Module=nn.CrossEntropyLoss,
         lr: float=1e-3,
         num_classes: int=5,
@@ -29,6 +29,9 @@ class TrainingModule(pl.LightningModule):
         self.num_classes = num_classes
         self.loss_weights = loss_weights
         self.weight_decay = weight_decay
+        
+        self.test_labels = list()
+        self.test_predictions = list()
         
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
         self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
@@ -62,6 +65,23 @@ class TrainingModule(pl.LightningModule):
             param.detach() 
         
         return loss
+    
+    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx):
+        x, y = batch
+        if isinstance(self.model, LSTMNetwork):
+            T = x.shape[-1]
+            # sample a random time to get prediction
+            t = np.random.randint(0, T)
+            out = self.model.forward(x, predict_time=t)
+        else:
+            out = self.model.forward(x)
+        self.test_labels.append(y.cpu().detach().numpy())
+        self.test_predictions.append(torch.argsort(out).cpu().detach().numpy())
+        loss = self.loss_fn(out, y)
+        return loss
+    
+    def return_test_results(self):
+        return np.concatenate(self.test_predictions), np.concatenate(self.test_labels)
     
     def configure_optimizers(self):
         if isinstance(self.model, LSTMNetwork):

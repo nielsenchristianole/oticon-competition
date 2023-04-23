@@ -1,5 +1,8 @@
 import os
 import argparse
+import pickle
+import glob
+import numpy as np
 
 import torch
 
@@ -64,6 +67,28 @@ def main(model_type: str, epochs: int, seed: int=None, device: str='cuda'):
         training_model,
         data_module
     )
+    
+    # get precictions and do eval metrics
+    trainer.test(
+        training_model,
+        data_module,
+        ckpt_path='best'
+    )
+    
+    version_path = os.path.join(models_dir, 'lightning_logs', 'version_0')
+    v = 0
+    while True:
+        v += 1
+        path = os.path.join(models_dir, 'lightning_logs', f'version_{v}')
+        if os.path.exists(path):
+            version_path = path
+        else:
+            break
+    
+    test_predictions, test_labels = training_model.return_test_results()
+    np.save(os.path.join(version_path, 'test_predictions.npy'), test_predictions)
+    np.save(os.path.join(version_path, 'test_labels.npy'), test_labels)
+    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -75,7 +100,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     model_type = 'cnn' if args.model is None else args.model
-    epochs = 20 if args.epochs is None else args.epochs
+    epochs = 1 if args.epochs is None else args.epochs
     seed = args.seed
     device = args.device
     if device is None:

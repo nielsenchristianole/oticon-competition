@@ -15,12 +15,12 @@ fcnn_params = dict(
 cnn_params = dict(
     sound_context_lenght=-1,
     model_kwargs=dict(
-        channels=(1, 2, 4, 8),
-        fc_dims=(32,32,64,5),
-        in_channels=1,
-        channel_mult=16,
+        channels=(1, 2, 4, 8), # len = number of contractive layers; int = channel multiplier for the layer
+        fc_dims=(32,32,64,5), # output dims for each dense layer, 5 is number of classes
+        in_channels=1, # number of input channels of image (spectrogram is single channel)
+        channel_mult=16, # base number of channels to be multiplied by channels
         dropout=0.4,
-        channels_layer_repeats=2,
+        channels_layer_repeats=2, # number of conv layers for each layer
     ),
     training_module_kwargs=dict(
         loss_fn=CrossEntropyLoss,
