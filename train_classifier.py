@@ -86,8 +86,22 @@ def main(model_type: str, epochs: int, seed: int=None, device: str='cuda'):
             break
     
     test_predictions, test_labels = training_model.return_test_results()
-    np.save(os.path.join(version_path, 'test_predictions.npy'), test_predictions)
-    np.save(os.path.join(version_path, 'test_labels.npy'), test_labels)
+    np.save(os.path.join(version_path, 'val_predictions.npy'), test_predictions)
+    np.save(os.path.join(version_path, 'val_labels.npy'), test_labels)
+    
+    predict_out: list[torch.Tensor]
+    predict_out = trainer.predict(
+        training_model,
+        data_module,
+        ckpt_path='best'
+    )
+    predict_out = [t.numpy() for t in predict_out]
+    predict_out: list[np.ndarray]
+    predict_out = np.concatenate(predict_out)
+    predict_out: np.ndarray
+    np.save(os.path.join(version_path, 'test_predictions.npy'), predict_out)
+    predict_out = np.argmax(predict_out, axis=1)
+    np.savetxt(os.path.join(version_path, 'test_predictions.txt'), predict_out, fmt='%s')
     
 
 if __name__ == '__main__':
@@ -100,7 +114,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     model_type = 'cnn' if args.model is None else args.model
-    epochs = 4 if args.epochs is None else args.epochs
+    epochs = 1 if args.epochs is None else args.epochs
     seed = args.seed
     device = args.device
     if device is None:

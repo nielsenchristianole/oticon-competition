@@ -50,6 +50,9 @@ class TrainingModule(pl.LightningModule):
             acc(F.softmax(out, dim=1), y)
         return loss
     
+    def forward(self, x):
+        return self.model.forward(x)
+    
     def training_step(self, batch, batch_idx):
         loss = self.process_batch(batch, batch_idx, acc=self.train_acc)
         self.log('train_loss', loss, prog_bar=False, on_step=True, on_epoch=False, logger=True)
