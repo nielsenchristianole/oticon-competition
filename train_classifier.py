@@ -26,8 +26,9 @@ models_dict = dict(
     lstm=LSTMNetwork
 )
 
-def main(model_type: str, epochs: int, seed: int=None, device: str='cuda'):
-    models_dir = os.path.join('./models/', f'{model_type}-{seed}')
+def main(model_type: str, epochs: int, seed: int=None, device: str='cuda', work_dir='./'):
+    models_dir = os.path.join(work_dir, 'models/', f'{model_type}-{seed}')
+    data_dir = os.path.join(work_dir, 'data/')
     
     params = params_dict[model_type]
     
@@ -37,7 +38,7 @@ def main(model_type: str, epochs: int, seed: int=None, device: str='cuda'):
     one_hot = params.get('training_module_kwargs').get('loss_fn') is torch.nn.MSELoss
     # get dataloaders
     sound_context_lenght = params.get('sound_context_lenght')
-    data_module = SoundDataModule('./data/', sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=3.)
+    data_module = SoundDataModule(data_dir, sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=3.)
     assert device=='cpu' or torch.cuda.is_available(), "Cuda is not available, please select cpu as device"
     loss_weights = data_module.get_loss_weight()
     
@@ -114,11 +115,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     model_type = 'cnn' if args.model is None else args.model
-    epochs = 1 if args.epochs is None else args.epochs
+    epochs = 25 if args.epochs is None else args.epochs
     seed = args.seed
     device = args.device
     if device is None:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
     assert torch.cuda.is_available()
     
-    main(model_type, epochs, seed, 'cpu')
+    main(model_type, epochs, seed, 'cpu', data_dir=r'C:\Users\niels\local_data\oticon')
