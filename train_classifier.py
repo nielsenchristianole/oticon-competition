@@ -122,4 +122,4 @@ if __name__ == '__main__':
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
     assert torch.cuda.is_available()
     
-    main(model_type, epochs, seed, 'cpu', data_dir=r'C:\Users\niels\local_data\oticon')
+    main(model_type, epochs, seed, 'cpu', work_dir=r'C:\Users\niels\local_data\oticon')
