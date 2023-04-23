@@ -244,8 +244,8 @@ if __name__ == '__main__':
     
     
     # model = SimpleFCNN((np.prod(img_size), 16, n_classes), 0.1)
-    # model = SimpleCNN((1, 2, 4), (128, 128, n_classes))
-    model = LSTMNetwork(img_size, **lstm_params.get('model_kwargs'))
+    model = SimpleCNN((1, 2, 4), (128, 128, n_classes))
+    # model = LSTMNetwork(img_size, **lstm_params.get('model_kwargs'))
     # model = LSTMNetwork(img_size[0], 16, n_classes)
     out = model.forward(x, predict_time=10)
     print(out.shape)

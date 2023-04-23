@@ -20,6 +20,7 @@ class SoundDataModule(pl.LightningDataModule):
         num_workers: int=None,
         balance: float=0.,
         class_subset: list=None,
+        data_split_seed: int=42,
     ):
         """
         Datamodule for oticon challenge.
@@ -35,6 +36,7 @@ class SoundDataModule(pl.LightningDataModule):
         self.train_val_split = train_val_split
         self.num_workers = num_workers if num_workers is not None else os.cpu_count()
         self.balance = balance
+        self.data_split_seed = data_split_seed
         self.numpy_X = None
         self.numpy_y = None
         
@@ -67,8 +69,9 @@ class SoundDataModule(pl.LightningDataModule):
             self.numpy_X, self.numpy_y = X, y
             X, y = torch.Tensor(X), torch.Tensor(y)
             whole_dataset = TensorDataset(X, y)
-            self.train_set, self.val_set = random_split(whole_dataset, self.train_val_split)
-            
+            self.train_set, self.val_set = random_split(whole_dataset, self.train_val_split, generator=torch.Generator().manual_seed(self.data_split_seed))
+        elif stage == 'test':
+            pass
         elif stage == 'predict':
             X = torch.Tensor(np.load(os.path.join(self.data_dir, 'test.npy')))
             self.predict_set = TensorDataset(X)
@@ -82,10 +85,10 @@ class SoundDataModule(pl.LightningDataModule):
         return DataLoader(self.val_set, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, collate_fn=self._collate_X_y)
 
     def test_dataloader(self):
-        raise NotImplementedError('test_dataloader has not been implemented')
+        return self.val_dataloader()
 
     def predict_dataloader(self):
-        return DataLoader(self.predict_set, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, collate_fn=self._collate_X)
+        return DataLoader(self.predict_set, batch_size=1, shuffle=False, num_workers=self.num_workers, collate_fn=self._collate_X)
     
     def get_loss_weight(self) -> torch.Tensor:
         if self.numpy_y is None:
@@ -96,7 +99,7 @@ class SoundDataModule(pl.LightningDataModule):
         class_distribution = np.array(class_distribution)
         class_distribution = 1 / class_distribution
         class_distribution = class_distribution * len(self.class_subset) / sum(class_distribution)
-        return torch.from_numpy(class_distribution)
+        return torch.from_numpy(class_distribution).to(torch.float32)
     
     def _collate_X_y(self, batch):
         X, y = list(zip(*batch))
