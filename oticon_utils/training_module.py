@@ -57,6 +57,10 @@ class TrainingModule(pl.LightningModule):
         loss = self.process_batch(batch, batch_idx, acc=self.val_acc)
         self.log('val_loss', loss, prog_bar=True, on_step=False, on_epoch=True, logger=True)
         self.log('val_acc', self.val_acc, prog_bar=True, on_step=False, on_epoch=True, logger=True)
+        
+        for param in self.model.parameters():
+            param.detach() 
+        
         return loss
     
     def configure_optimizers(self):

@@ -7,12 +7,14 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import CSVLogger
-from lightning.pytorch.callbacks import ModelPruning
 
 from oticon_utils.hyper_params import fcnn_params, cnn_params, lstm_params
 from oticon_utils.nn_modules import SimpleFCNN, SimpleCNN, LSTMNetwork
 from oticon_utils.sound_data_module import SoundDataModule
 from oticon_utils.training_module import TrainingModule
+import numpy as np
+
+import torch.nn.utils.prune as prune
 
 params_dict = dict(
     fcnn=fcnn_params,
@@ -25,7 +27,11 @@ models_dict = dict(
     lstm=LSTMNetwork
 )
 
-def main(model_type: str, epochs: int, prune_epochs: int, seed: int=None, device: str='cuda'):
+
+def compute_prune_amount(iteration):
+    return (np.exp(0.4/(iteration+1)) - 1)/1.3
+            
+def main(model_type: str, epochs: int, prune_epochs: int, interations: int, seed: int=None, device: str='cuda'):
     models_dir = os.path.join('./models/', f'{model_type}-{seed}')
     
     params = params_dict[model_type]
@@ -36,7 +42,7 @@ def main(model_type: str, epochs: int, prune_epochs: int, seed: int=None, device
     one_hot = params.get('training_module_kwargs').get('loss_fn') is torch.nn.MSELoss
     # get dataloaders
     sound_context_lenght = params.get('sound_context_lenght')
-    data_module = SoundDataModule('./data/', sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=True)
+    data_module = SoundDataModule('./data/', sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=3.)
     assert device=='cpu' or torch.cuda.is_available(), "Cuda is not available, please select cpu as device"
     
     # get model
@@ -48,51 +54,89 @@ def main(model_type: str, epochs: int, prune_epochs: int, seed: int=None, device
     training_module_kwargs = params.get('training_module_kwargs')
     training_model = TrainingModule(model, **training_module_kwargs).to(device)
     
-    loss_callback = ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=-1, filename='loss-{epoch}-{val_loss:.3}-val_acc-{val_acc:.3}')
+    loss_callback = ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=5, filename='loss-{epoch}-{val_loss:.3}-{val_acc:.3}')
+
     
-    def compute_prune_amount(epoch):
-        prune_every_n = 3
+    # # Writting as lambda function to ensure compatability with pickle
+    # compute_prune_amount = lambda epoch : torch.exp(0.4/idx) - 1 if( idx := epoch - epochs <= 0 and (idx - 1)%3 == 0) else 0
 
-        idx = epoch - epochs
-        if idx > 0 and (idx - 1)%prune_every_n == 0:
-            return torch.exp(0.4/idx)-1
-        else:
-            return 0
-
-
+    print(">>>", type(epochs), type(prune_epochs))
     # init trainer
-    trainer = pl.Trainer(
+    init_trainer = pl.Trainer(
         default_root_dir=models_dir,
-        callbacks=[loss_callback, ModelPruning("l1_unstructured", amount=compute_prune_amount)],
-        max_epochs=epochs + prune_epochs,
+        callbacks=[loss_callback],
+        max_epochs=epochs,
         logger=CSVLogger(models_dir, flush_logs_every_n_steps=100),
         log_every_n_steps=10,
         accelerator=device
     )
-
+    
+    
+    
+    ### Initial training
+    
     # train loop
-    trainer.fit(
+    init_trainer.fit(
         training_model,
         data_module
     )
+    
+    ### Do 'iterations' number of prunning.
+    # Detach the pruning from pytorch lightning due to issues
+    for iter in range(interations):
+        
+        data_module = SoundDataModule('./data/', sound_context_lenght=sound_context_lenght, one_hot=one_hot, balance=3.)
+        
+        loss_callback = ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=-1, filename='(pruned)loss-{epoch}-{val_loss:.3}-{val_acc:.3}')
+        
+        pruned_trainer = pl.Trainer(
+            default_root_dir=models_dir,
+            callbacks=[loss_callback],
+            max_epochs=prune_epochs,
+            logger=CSVLogger(models_dir, flush_logs_every_n_steps=100),
+            log_every_n_steps=10,
+            accelerator=device
+        )
+        
+        parameters_to_prune = []
+        for module_name, module in training_model.model.named_modules():
+            if isinstance(module, torch.nn.Conv2d):
+                for parameter in module.parameters():
+                    parameter.detach()
+                    parameter.requires_grad_(requires_grad = False)
+                parameters_to_prune.append((module, "weight"))
+        prune.global_unstructured(
+            parameters_to_prune,
+            pruning_method=prune.L1Unstructured,
+            amount=compute_prune_amount(iter),
+        )
+        
+        
+        # train loop
+        pruned_trainer.fit(
+            training_model,
+            data_module
+        )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model')
-    parser.add_argument('--epochs')
-    parser.add_argument('--prune_epochs')
-    parser.add_argument('--seed')
-    parser.add_argument('--device')
+    parser.add_argument('--model', required=True, type=str)
+    parser.add_argument('--epochs', type=int)
+    parser.add_argument('--prune_epochs', type=int)
+    parser.add_argument('--seed', type=str)
+    parser.add_argument('--device', type=str)
+    parser.add_argument('--iterations',type=int,default=0)
     
     args = parser.parse_args()
     
     model_type = 'cnn' if args.model is None else args.model
-    epochs = 20 if args.epochs is None else args.epochs
-    prune_epochs = 20 if args.pune_epochs is None else args.prune_epochs
+    epochs = 0 if args.epochs is None else args.epochs
+    prune_epochs = 6 if args.prune_epochs is None else args.prune_epochs
     seed = args.seed
     device = args.device
+    iterations = args.iterations
     if device is None:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
     assert torch.cuda.is_available()
     
-    main(model_type, epochs, seed, 'cpu')
+    main(model_type, epochs, prune_epochs, iterations, seed, 'cpu')
